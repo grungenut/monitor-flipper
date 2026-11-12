@@ -1,0 +1,42 @@
+# Builds MonitorFlipper.exe from source on every push.
+# Pushing a version tag (for example v1.0.0) also publishes a GitHub Release with the exe.
+# Code signing (SignPath) is added here once the SignPath Foundation application is approved.
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        shell: cmd
+        run: Project\build.cmd
+
+      - name: Upload exe
+        id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: MonitorFlipper
+          path: Project/bin/MonitorFlipper.exe
+          if-no-files-found: error
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" Project/bin/MonitorFlipper.exe \
+            --title "Monitor Flipper ${GITHUB_REF_NAME#v}" \
+            --notes "Mirror any monitor or window to another screen, flipped. Built for teleprompters. Download MonitorFlipper.exe below and run it; no installer needed. Built from this tag by GitHub Actions."
